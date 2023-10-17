@@ -41,10 +41,10 @@ const data = make_data(
     0
 )
 
-export const BOX_W = 512
-export const BOX_H = 256
-export const PADDING = 32
-export const PATH_W = 32
+export const BOX_W = 128
+export const BOX_H = 128
+export const PADDING = 64
+export const PATH_W = 16
 export const PATH_COLOR = '#008736'
 export const ROOT_W = 256
 
@@ -57,7 +57,7 @@ function update_project_positions() {
         let l = 1
 
         project.childs.forEach(p => {
-            p.pos.y = y - level * BOX_H + 400
+            p.pos.y = y - level * BOX_H * 2
 
             if (p.childs.length) {
                 let res = calc_width(p, level + 1)
@@ -66,17 +66,15 @@ function update_project_positions() {
                 l += res.l
             } else {
                 p.pos.w = BOX_W + PADDING * 2
-                p.pos.h = BOX_H + 400
+                // p.pos.h = BOX_H + 400
             }
 
             w += p.pos.w
             // h += p.pos.h
         })
 
-        console.log(project.title, l)
-
         project.pos.w = w
-        project.pos.h = (l + 1) * BOX_H + 400
+        // project.pos.h = (l + 1) * (BOX_H + 400)
 
         return { w, h, l }
     }

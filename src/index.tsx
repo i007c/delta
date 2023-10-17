@@ -18,10 +18,21 @@ import {
     ROOT_W,
 } from './data'
 
-const PCW = 128
-const LW = 32
-
 var ANIME: NodeJS.Timer
+var camera = {
+    x: innerWidth / 2,
+    y: -1000,
+    zoom: 1,
+}
+var mouse = {
+    x: 0,
+    y: 0,
+}
+var drag = {
+    active: false,
+    x: 0,
+    y: 0,
+}
 
 // function random(min: number, max: number) {
 //     return Math.random() * (max - min) + min
@@ -81,7 +92,7 @@ function MakeParticle(a: Pos, b: Pos): Particle {
             // context.lineTo(x, y)
             // this.x = x
             // this.y = y
-            context.arc(x, y, LW / 2, 0, 2 * Math.PI)
+            context.arc(x, y, PATH_W / 2, 0, 2 * Math.PI)
 
             context.fillStyle = this.color
             context.fill()
@@ -111,47 +122,33 @@ data.childs.forEach((p, i) => {
     update_particles(p)
 })
 
-var camera = {
-    x: -573,
-    y: -90,
-    zoom: 0.1,
-}
-var mouse = {
-    x: 0,
-    y: 0,
-}
-var drag = {
-    active: false,
-    x: 0,
-    y: 0,
-}
-
 function draw_project(p: Project) {
-    // let x = p.pos.x - p.pos.w / 2
-    // let y = p.pos.y - PCW * 2
+    let x = p.pos.x
+    let y = p.pos.y
 
-    // if (
-    //     mouse.x >= x &&
-    //     mouse.x <= x + p.pos.w &&
-    //     mouse.y >= y &&
-    //     mouse.y <= y + PCW * 4
-    // ) {
-    //     if (
-    //         Math.pow(mouse.x - p.pos.x, 2) + Math.pow(mouse.y - p.pos.y, 2) <
-    //         Math.pow(PCW, 2)
-    //     ) {
-    //         // context.globalAlpha = 0.5
-    //         context.beginPath()
-    //         context.lineWidth = 10
-    //         context.strokeStyle = PATH_COLOR
-    //         context.arc(p.pos.x, p.pos.y, PCW, 0, 2 * Math.PI)
-    //         context.stroke()
-    //     }
-    // }
+    if (
+        mouse.x >= x - BOX_W / 2 &&
+        mouse.x <= x + BOX_W / 2 &&
+        mouse.y >= y - BOX_H / 2 &&
+        mouse.y <= y + BOX_H / 2
+    ) {
+        context.beginPath()
+        context.lineWidth = 10
+        context.strokeStyle = PATH_COLOR
+        context.roundRect(
+            p.pos.x - BOX_W / 2,
+            p.pos.y - BOX_H / 2,
+            BOX_W,
+            BOX_H,
+            10
+        )
+
+        context.stroke()
+    }
 
     context.globalAlpha = 1
     context.beginPath()
-    context.fillStyle = '#f6b232'
+    context.strokeStyle = '#f6b232'
     // context.arc(p.pos.x, p.pos.y, PCW, 0, 2 * Math.PI)
     context.roundRect(
         p.pos.x - BOX_W / 2,
@@ -160,11 +157,13 @@ function draw_project(p: Project) {
         BOX_H,
         10
     )
-    context.fill()
+    context.lineWidth = 1
+    context.stroke()
 
-    context.fillStyle = '#111'
-    context.font = 'normal 18px monospace'
-    context.fillText(p.title, p.pos.x - PCW, p.pos.y)
+    context.fillStyle = '#f2f2f2'
+    context.font = 'bold 18px monospace'
+    context.textAlign = 'center'
+    context.fillText(p.repo, p.pos.x, p.pos.y)
 }
 
 function draw_curve(a: Pos, b: Pos) {
@@ -173,7 +172,7 @@ function draw_curve(a: Pos, b: Pos) {
     let c1 = { x: a.x, y: b.y }
     let c2 = { x: b.x, y: a.y }
     context.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y)
-    context.lineWidth = LW
+    context.lineWidth = PATH_W
     context.stroke()
 }
 
@@ -237,8 +236,9 @@ function render_data() {
 }
 
 function update_canvas() {
-    canvas.width = innerWidth
-    canvas.height = innerHeight
+    const rec = canvas.getBoundingClientRect()
+    canvas.width = rec.width
+    canvas.height = rec.height
 
     context.fillStyle = 'rgb(4, 4, 4, 1)'
     context.fillRect(-10000, -10000, 20000, 20000)
@@ -275,7 +275,7 @@ function update_canvas() {
         context.beginPath()
         context.moveTo(x, 2040)
         context.lineTo(x, 20000)
-        context.lineWidth = LW
+        context.lineWidth = PATH_W
         context.strokeStyle = PATH_COLOR
         context.stroke()
         iterate(p)
@@ -301,8 +301,7 @@ const App: Component = () => {
     return (
         <main>
             <canvas
-                width={innerWidth}
-                height={innerHeight}
+                style={{ width: '75%', height: '100%' }}
                 ref={e => {
                     canvas = e
                     context = canvas.getContext('2d')!
@@ -327,15 +326,17 @@ const App: Component = () => {
                         update_canvas()
                     }
 
-                    // console.log(camera.x)
-
                     // camera.y = Math.max(-400, camera.y)
 
-                    let j = (camera.x - innerWidth / 2) * camera.zoom
-                    j += innerWidth / 2
+                    let j = (camera.x - canvas.width / 2) * camera.zoom
+                    j += canvas.width / 2
 
-                    let k = (camera.y - innerHeight / 2) * camera.zoom
-                    k += innerHeight / 2
+                    let k = (camera.y - canvas.height / 2) * camera.zoom
+                    k += canvas.height / 2
+
+                    console.log(-canvas.width / 2 + camera.x, j)
+                    // j = -canvas.width / 2 + camera.x
+                    // -canvas.height / 2 + camera.y
 
                     // let { x, y } = e.target.getBoundingClientRect()
 
@@ -343,7 +344,6 @@ const App: Component = () => {
                     mouse.y = -(k - e.clientY) / camera.zoom
                     // mouse.x = ~~((e.clientX - x - camera.x) / camera.zoom)
                     // mouse.y = ~~((e.clientY - y - camera.y) / camera.zoom)
-                    // console.log(mouse.x, mouse.y)
                     // mouse.y = ~~((e.clientY - y) / camera.zoom - camera.y)
                 }}
                 onWheel={e => {
@@ -356,6 +356,7 @@ const App: Component = () => {
                     update_canvas()
                 }}
             />
+            <div class='info'></div>
         </main>
     )
 }
