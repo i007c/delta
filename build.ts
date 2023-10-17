@@ -7,6 +7,8 @@ import { mkdirSync } from 'fs'
 import { parse as path_parse, resolve as path_resolve } from 'path'
 import { compileStringAsync as sass_compile } from 'sass-embedded'
 
+console.clear()
+
 const {
     symbols: { watch_init, watch_check, watch_add },
 } = dlopen('libwatch.so', {

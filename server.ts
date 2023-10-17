@@ -3,6 +3,7 @@ import { resolve as path_resolve } from 'path'
 const DIR_DIST = path_resolve(import.meta.dir, 'dist/')
 const LT_ASSETS = path_resolve(DIR_DIST, 'latest_assets.json')
 
+console.clear()
 console.log('server is running')
 
 Bun.serve({
