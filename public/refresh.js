@@ -23,6 +23,7 @@ hot_reload_ws.onmessage = function (e) {
     let data = JSON.parse(e.data)
     if (data.scripts[0] != index_script.attributes.src.value) {
         clean_up()
+        console.clear()
         index_script.remove()
         index_script = document.createElement('script')
         index_script.id = 'index_script'
