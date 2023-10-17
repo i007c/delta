@@ -1,3 +1,3 @@
-# Zagros
+# Delta
 
-![zagros](/public/image/zagros.jpg)
+![delta](/public/image/demo.jpg)
