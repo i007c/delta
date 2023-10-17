@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Graduate&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    // user-select: none;
+
+    &:focus {
+        outline: 0;
+        // outline: 2px solid #117243;
+    }
+}
+
+body {
+    background-color: #040404;
+    color: #f2f2f2;
+
+    --white-color: #f2f2f2;
+    --accent-color: #f6b232; // #117243 #00dc7d #143fb4 #f6b232 #3f3129
+    --red-color: #e20338;
+    font-family: monospace;
+
+    .root {
+        display: flex;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+
+        main {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            padding: 1rem;
+
+            canvas {
+                height: 100%;
+                aspect-ratio: 1;
+                border: 1px solid #f2f2f2;
+                border-radius: 7px;
+            }
+
+            .btn {
+                position: fixed;
+                bottom: 10px;
+                right: 1rem;
+                background: transparent;
+                color: #f2f2f2;
+                font-size: 22px;
+                border: 2px solid var(--accent-color);
+                padding: 0.2rem 2rem;
+                border-radius: 7px;
+            }
+        }
+    }
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+}
+::-webkit-scrollbar-track {
+    background-color: #111;
+}
+::-webkit-scrollbar-thumb {
+    background-color: #333;
+    border-radius: 10px;
+    border: 2px solid #111;
+}
+::-webkit-scrollbar-button {
+    display: none;
+}
+::-webkit-scrollbar-corner {
+    background-color: #111;
+}
+::selection {
+    background-color: var(--accent-color);
+    color: #ddd;
+}
