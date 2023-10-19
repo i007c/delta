@@ -1,33 +1,31 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
-import { Component, onCleanup, onMount } from 'solid-js'
+import {
+    Component,
+    createEffect,
+    createSignal,
+    onCleanup,
+    onMount,
+} from 'solid-js'
 import { render } from 'solid-js/web'
 import 'style/index.scss'
 
-var canvas: HTMLCanvasElement
-var context: CanvasRenderingContext2D
+// var canvas: HTMLCanvasElement
+// var context: CanvasRenderingContext2D
+var context: SVGGElement
+var svg: SVGSVGElement
+const SVGNS = 'http://www.w3.org/2000/svg'
 
-import {
-    data,
-    Project,
-    Pos,
-    BOX_W,
-    BOX_H,
-    PATH_W,
-    PATH_COLOR,
-    ROOT_W,
-} from './data'
+import { Repo, graph } from 'stores'
+import type { GraphNode, GraphEdge } from 'stores'
 
 var ANIME: NodeJS.Timer
-var camera = {
-    x: innerWidth / 2,
-    y: -1000,
-    zoom: 1,
-}
-var mouse = {
+var transform = {
     x: 0,
     y: 0,
+    z: 0.2,
 }
+
 var drag = {
     active: false,
     x: 0,
@@ -38,143 +36,143 @@ var drag = {
 //     return Math.random() * (max - min) + min
 // }
 
-function getCubicBezierXYatPercent(a: Pos, b: Pos, pct: number) {
-    let c1 = { x: a.x, y: b.y }
-    let c2 = { x: b.x, y: a.y }
+// function getCubicBezierXYatPercent(a: Pos, b: Pos, pct: number) {
+//     let c1 = { x: a.x, y: b.y }
+//     let c2 = { x: b.x, y: a.y }
+//
+//     var x = CubicN(pct, a.x, c1.x, c2.x, b.x)
+//     var y = CubicN(pct, a.y, c1.y, c2.y, b.y)
+//     return { x: x, y: y }
+// }
+//
+// function CubicN(pct: number, a: number, b: number, c: number, d: number) {
+//     var t2 = pct * pct
+//     var t3 = t2 * pct
+//     return (
+//         a +
+//         (-a * 3 + pct * (3 * a - a * pct)) * pct +
+//         (3 * b + pct * (-6 * b + b * 3 * pct)) * pct +
+//         (c * 3 - c * 3 * pct) * t2 +
+//         d * t3
+//     )
+// }
+//
+// type Particle = {
+//     a: Pos
+//     b: Pos
+//     x: number
+//     y: number
+//     pct: number
+//     color: string
+//     update(): void
+// }
+//
+// function MakeParticle(a: Pos, b: Pos): Particle {
+//     return {
+//         a,
+//         b,
+//         pct: 0,
+//         color: PATH_COLOR,
+//         // color: '#f2f2f2',
+//         x: a.x,
+//         y: a.y,
+//         update() {
+//             if (this.pct >= 1) {
+//                 this.pct = 0
+//                 this.x = a.x
+//                 this.y = a.y
+//             }
+//
+//             // context.globalAlpha = 0.1
+//             context.beginPath()
+//             let { x, y } = getCubicBezierXYatPercent(this.a, this.b, this.pct)
+//             // context.moveTo(this.x, this.y)
+//             // context.lineTo(x, y)
+//             // this.x = x
+//             // this.y = y
+//             context.arc(x, y, PATH_W / 2, 0, 2 * Math.PI)
+//
+//             context.fillStyle = this.color
+//             context.fill()
+//             // context.strokeStyle = this.color
+//             // context.stroke()
+//
+//             this.pct += 0.001
+//         },
+//     }
+// }
+//
+// const particles: Particle[] = []
+//
+// function update_particles(project: Project) {
+//     project.childs.forEach(p => {
+//         particles.push(MakeParticle(project.pos, p.pos))
+//         // particles.push(MakeParticle(project.pos, p.pos, -0.1, '#f2f2f2'))
+//         update_particles(p)
+//     })
+// }
+//
+// data.childs.forEach((p, i) => {
+//     let sw = ROOT_W / data.childs.length
+//     let x = sw / 2 + i * sw
+//     x -= ROOT_W / 2
+//     particles.push(MakeParticle({ y: 2040, x, w: 0, h: 0 }, p.pos))
+//     update_particles(p)
+// })
 
-    var x = CubicN(pct, a.x, c1.x, c2.x, b.x)
-    var y = CubicN(pct, a.y, c1.y, c2.y, b.y)
-    return { x: x, y: y }
-}
-
-function CubicN(pct: number, a: number, b: number, c: number, d: number) {
-    var t2 = pct * pct
-    var t3 = t2 * pct
-    return (
-        a +
-        (-a * 3 + pct * (3 * a - a * pct)) * pct +
-        (3 * b + pct * (-6 * b + b * 3 * pct)) * pct +
-        (c * 3 - c * 3 * pct) * t2 +
-        d * t3
-    )
-}
-
-type Particle = {
-    a: Pos
-    b: Pos
-    x: number
-    y: number
-    pct: number
-    color: string
-    update(): void
-}
-
-function MakeParticle(a: Pos, b: Pos): Particle {
-    return {
-        a,
-        b,
-        pct: 0,
-        color: PATH_COLOR,
-        // color: '#f2f2f2',
-        x: a.x,
-        y: a.y,
-        update() {
-            if (this.pct >= 1) {
-                this.pct = 0
-                this.x = a.x
-                this.y = a.y
-            }
-
-            // context.globalAlpha = 0.1
-            context.beginPath()
-            let { x, y } = getCubicBezierXYatPercent(this.a, this.b, this.pct)
-            // context.moveTo(this.x, this.y)
-            // context.lineTo(x, y)
-            // this.x = x
-            // this.y = y
-            context.arc(x, y, PATH_W / 2, 0, 2 * Math.PI)
-
-            context.fillStyle = this.color
-            context.fill()
-            // context.strokeStyle = this.color
-            // context.stroke()
-
-            this.pct += 0.001
-        },
-    }
-}
-
-const particles: Particle[] = []
-
-function update_particles(project: Project) {
-    project.childs.forEach(p => {
-        particles.push(MakeParticle(project.pos, p.pos))
-        // particles.push(MakeParticle(project.pos, p.pos, -0.1, '#f2f2f2'))
-        update_particles(p)
-    })
-}
-
-data.childs.forEach((p, i) => {
-    let sw = ROOT_W / data.childs.length
-    let x = sw / 2 + i * sw
-    x -= ROOT_W / 2
-    particles.push(MakeParticle({ y: 2040, x, w: 0, h: 0 }, p.pos))
-    update_particles(p)
-})
-
-function draw_project(p: Project) {
-    let x = p.pos.x
-    let y = p.pos.y
-
-    if (
-        mouse.x >= x - BOX_W / 2 &&
-        mouse.x <= x + BOX_W / 2 &&
-        mouse.y >= y - BOX_H / 2 &&
-        mouse.y <= y + BOX_H / 2
-    ) {
-        context.beginPath()
-        context.lineWidth = 10
-        context.strokeStyle = PATH_COLOR
-        context.roundRect(
-            p.pos.x - BOX_W / 2,
-            p.pos.y - BOX_H / 2,
-            BOX_W,
-            BOX_H,
-            10
-        )
-
-        context.stroke()
-    }
-
-    context.globalAlpha = 1
-    context.beginPath()
-    context.strokeStyle = '#f6b232'
-    // context.arc(p.pos.x, p.pos.y, PCW, 0, 2 * Math.PI)
-    context.roundRect(
-        p.pos.x - BOX_W / 2,
-        p.pos.y - BOX_H / 2,
-        BOX_W,
-        BOX_H,
-        10
-    )
-    context.lineWidth = 1
-    context.stroke()
-
-    context.fillStyle = '#f2f2f2'
-    context.font = 'bold 18px monospace'
-    context.textAlign = 'center'
-    context.fillText(p.repo, p.pos.x, p.pos.y)
-}
-
-function draw_curve(a: Pos, b: Pos) {
-    context.beginPath()
-    context.moveTo(a.x, a.y)
-    let c1 = { x: a.x, y: b.y }
-    let c2 = { x: b.x, y: a.y }
-    context.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y)
-    context.lineWidth = PATH_W
-    context.stroke()
-}
+// function draw_project(p: Project) {
+//     let x = p.pos.x
+//     let y = p.pos.y
+//
+//     if (
+//         mouse.x >= x - BOX_W / 2 &&
+//         mouse.x <= x + BOX_W / 2 &&
+//         mouse.y >= y - BOX_H / 2 &&
+//         mouse.y <= y + BOX_H / 2
+//     ) {
+//         context.beginPath()
+//         context.lineWidth = 10
+//         context.strokeStyle = PATH_COLOR
+//         context.roundRect(
+//             p.pos.x - BOX_W / 2,
+//             p.pos.y - BOX_H / 2,
+//             BOX_W,
+//             BOX_H,
+//             10
+//         )
+//
+//         context.stroke()
+//     }
+//
+//     context.globalAlpha = 1
+//     context.beginPath()
+//     context.strokeStyle = '#f6b232'
+//     // context.arc(p.pos.x, p.pos.y, PCW, 0, 2 * Math.PI)
+//     context.roundRect(
+//         p.pos.x - BOX_W / 2,
+//         p.pos.y - BOX_H / 2,
+//         BOX_W,
+//         BOX_H,
+//         10
+//     )
+//     context.lineWidth = 1
+//     context.stroke()
+//
+//     context.fillStyle = '#f2f2f2'
+//     context.font = 'bold 18px monospace'
+//     context.textAlign = 'center'
+//     context.fillText(p.repo, p.pos.x, p.pos.y)
+// }
+//
+// function draw_curve(a: Pos, b: Pos) {
+//     context.beginPath()
+//     context.moveTo(a.x, a.y)
+//     let c1 = { x: a.x, y: b.y }
+//     let c2 = { x: b.x, y: a.y }
+//     context.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y)
+//     context.lineWidth = PATH_W
+//     context.stroke()
+// }
 
 // function draw_box(p: Project) {
 //     // context.globalAlpha = 0.01
@@ -203,13 +201,12 @@ function draw_curve(a: Pos, b: Pos) {
 //     context.fillRect(x, y, p.pos.w, PCW * 4)
 // }
 
-function render_data() {
+function render_data(nodes: GraphNode[], edges: GraphEdge[]) {
     // context.beginPath()
     // context.fillStyle = 'red'
     // context.arc(0, 0, 50, 0, 2 * Math.PI)
     // context.fill()
     // context.closePath()
-
     // function pre(project: Project) {
     //     project.childs.forEach(p => {
     //         pre(p)
@@ -218,80 +215,150 @@ function render_data() {
     //     // draw_box(project)
     // }
     // data.childs.forEach(pre)
+    // context.fillStyle = 'rgb(4, 4, 4, 0.05)'
+    // context.fillRect(-10000, -10000, 20000, 20000)
+    //
+    // particles.forEach(p => p.update())
+    //
+    // function post(project: Project) {
+    //     project.childs.forEach(p => {
+    //         post(p)
+    //         draw_project(p)
+    //     })
+    //     draw_project(project)
+    // }
+    //
+    // data.childs.forEach(post)
+    //
+    //
+    // context.globalAlpha = 1
 
-    context.fillStyle = 'rgb(4, 4, 4, 0.05)'
-    context.fillRect(-10000, -10000, 20000, 20000)
+    edges.forEach(({ s, c, d, e }) => {
+        let path_data = `M ${s.x} ${s.y} C ${c.x} ${c.y} ${d.x} ${d.y} ${e.x} ${e.y}`
+        let path = document.createElementNS(SVGNS, 'path')
+        path.setAttributeNS(null, 'd', path_data)
+        context.appendChild(path)
 
-    particles.forEach(p => p.update())
+        // let line = document.createElementNS(SVGNS, 'line')
+        // line.setAttributeNS(null, 'x1', '0')
+        // line.setAttributeNS(null, 'x2', '10')
+        // line.setAttributeNS(null, 'y1', '0')
+        // line.setAttributeNS(null, 'y1', '0')
+        //
+        // let anime = document.createElementNS(SVGNS, 'animateMotion')
+        // anime.setAttributeNS(null, 'dur', '10s')
+        // anime.setAttributeNS(null, 'repeatCount', 'indefinite')
+        // anime.setAttributeNS(null, 'path', path_data)
+        // line.appendChild(anime)
 
-    function post(project: Project) {
-        project.childs.forEach(p => {
-            post(p)
-            draw_project(p)
-        })
-        draw_project(project)
-    }
+        // context.appendChild(line)
+    })
 
-    data.childs.forEach(post)
-}
-
-function update_canvas() {
-    const rec = canvas.getBoundingClientRect()
-    canvas.width = rec.width
-    canvas.height = rec.height
-
-    context.fillStyle = 'rgb(4, 4, 4, 1)'
-    context.fillRect(-10000, -10000, 20000, 20000)
-
-    context.translate(canvas.width / 2, canvas.height / 2)
-    context.scale(camera.zoom, camera.zoom)
-    context.translate(
-        -canvas.width / 2 + camera.x,
-        -canvas.height / 2 + camera.y
-    )
-    // context.clearRect(0, 0, canvas.width, canvas.height)
-
-    particles.forEach(p => (p.pct = 1))
-
-    function iterate(project: Project) {
-        project.childs.forEach(p => {
-            context.globalAlpha = 0.1
-            context.strokeStyle = PATH_COLOR
-            draw_curve(project.pos, p.pos)
-            iterate(p)
-            draw_project(p)
-        })
-        draw_project(project)
-    }
-
-    data.childs.forEach((p, i) => {
-        let sw = ROOT_W / data.childs.length
-        let x = sw / 2 + i * sw
-        x -= ROOT_W / 2
-
-        context.globalAlpha = 0.1
-        context.strokeStyle = PATH_COLOR
-        draw_curve({ y: 2040, x, w: 0, h: 0 }, p.pos)
-        context.beginPath()
-        context.moveTo(x, 2040)
-        context.lineTo(x, 20000)
-        context.lineWidth = PATH_W
-        context.strokeStyle = PATH_COLOR
-        context.stroke()
-        iterate(p)
+    nodes.forEach(n => {
+        let rect = document.createElementNS(SVGNS, 'rect')
+        rect.setAttributeNS(null, 'x', n.x.toString())
+        rect.setAttributeNS(null, 'y', n.y.toString())
+        rect.setAttributeNS(null, 'width', n.w.toString())
+        rect.setAttributeNS(null, 'height', n.h.toString())
+        rect.setAttributeNS(null, 'rx', '10')
+        rect.setAttributeNS(null, 'stroke', '#f6b232')
+        rect.setAttributeNS(null, 'fill', 'none')
+        context.appendChild(rect)
+        let text = document.createElementNS(SVGNS, 'text')
+        text.textContent = `${n.n} - ${n.repo}`
+        text.setAttributeNS(null, 'width', n.w.toString())
+        text.setAttributeNS(null, 'x', (n.x + n.w / 2).toString())
+        text.setAttributeNS(null, 'y', (n.y + n.h / 2).toString())
+        text.setAttributeNS(null, 'text-anchor', 'middle')
+        context.appendChild(text)
+        // text.setAttributeNS(null, )
+        // context.beginPath()
+        // context.roundRect(n.x, n.y, n.w, n.h, 10)
+        // context.strokeStyle = '#f6b232'
+        // context.stroke()
+        // context.closePath()
     })
 }
 
+// function update_canvas() {
+//     const rec = canvas.getBoundingClientRect()
+//
+//     const width = ~~rec.width
+//     const height = ~~rec.height
+//
+//     canvas.width = width
+//     canvas.height = height
+//
+//     // context.fillStyle = 'rgb(4, 4, 4, 1)'
+//     // context.fillRect(-10000, -10000, 20000, 20000)
+//
+//     context.translate(canvas.width / 2, canvas.height / 2)
+//     context.scale(camera.zoom, camera.zoom)
+//     context.translate(
+//         -canvas.width / 2 + camera.x,
+//         -canvas.height / 2 + camera.y
+//     )
+//     context.clearRect(0, 0, width, height)
+//     render_data()
+//
+//     // context.clearRect(0, 0, canvas.width, canvas.height)
+//
+//     // particles.forEach(p => (p.pct = 1))
+//     //
+//     // function iterate(project: Project) {
+//     //     project.childs.forEach(p => {
+//     //         context.globalAlpha = 0.1
+//     //         context.strokeStyle = PATH_COLOR
+//     //         draw_curve(project.pos, p.pos)
+//     //         iterate(p)
+//     //         draw_project(p)
+//     //     })
+//     //     draw_project(project)
+//     // }
+//     //
+//     // data.childs.forEach((p, i) => {
+//     //     let sw = ROOT_W / data.childs.length
+//     //     let x = sw / 2 + i * sw
+//     //     x -= ROOT_W / 2
+//     //
+//     //     context.globalAlpha = 0.1
+//     //     context.strokeStyle = PATH_COLOR
+//     //     draw_curve({ y: 2040, x, w: 0, h: 0 }, p.pos)
+//     //     context.beginPath()
+//     //     context.moveTo(x, 2040)
+//     //     context.lineTo(x, 20000)
+//     //     context.lineWidth = PATH_W
+//     //     context.strokeStyle = PATH_COLOR
+//     //     context.stroke() //     iterate(p)
+//     // })
+// }
+
+function update_viewbox() {
+    context.style.scale = transform.z.toString()
+    context.style.translate = `${transform.x}px ${transform.y}px`
+}
+
 const App: Component = () => {
+    const [active, setActive] = createSignal<Repo | null>(null)
+
     onMount(() => {
         onresize = () => {
-            update_canvas()
+            // update_canvas()
         }
 
-        update_canvas()
-        render_data()
+        const { width, height } = svg.viewBox.baseVal
 
-        ANIME = setInterval(render_data, 1)
+        transform.x = 50
+        transform.y = height / 2
+
+        update_viewbox()
+        // render_data()
+
+        // ANIME = setInterval(render_data, 1)
+    })
+
+    createEffect(() => {
+        render_data(graph.nodes, graph.edges)
     })
 
     onCleanup(() => {
@@ -300,7 +367,100 @@ const App: Component = () => {
 
     return (
         <main>
-            <canvas
+            <svg
+                onClick={e => {
+                    console.log(e.target)
+                }}
+                ref={svg}
+                viewBox='0 0 1000 1000'
+                onContextMenu={e => {
+                    e.preventDefault()
+                    const { width, height } = svg.viewBox.baseVal
+
+                    transform.x = width / 2
+                    transform.y = height / 2
+                    update_viewbox()
+                }}
+                onWheel={e => {
+                    if (drag.active) return
+
+                    const x = e.clientX - svg.viewBox.baseVal.width / 2
+                    const y = e.clientY - svg.viewBox.baseVal.height / 2
+                    let a = 1.1
+
+                    if (e.deltaY > 0) {
+                        a = 0.9
+                    }
+
+                    let oz = transform.z
+                    transform.z *= a
+
+                    if (transform.z > 0.1 && transform.z < 2) {
+                        transform.x = x - (x - transform.x) * a
+                        transform.y = y - (y - transform.y) * a
+                        update_viewbox()
+                    } else {
+                        transform.z = oz
+                    }
+                }}
+                onMouseDown={e => {
+                    if (e.button) return
+
+                    drag = {
+                        active: true,
+                        x: e.clientX,
+                        y: e.clientY,
+                    }
+                }}
+                onMouseUp={() => {
+                    drag.active = false
+                }}
+                onMouseLeave={() => {
+                    drag.active = false
+                }}
+                onMouseMove={e => {
+                    if (drag.active) {
+                        transform.x += e.clientX - drag.x
+                        transform.y += e.clientY - drag.y
+                        drag.x = e.clientX
+                        drag.y = e.clientY
+
+                        update_viewbox()
+                    }
+                }}
+            >
+                <defs>
+                    <linearGradient id='branch' x1='0' y1='0' x2='0' y2='1'>
+                        <stop offset='.1' stop-opacity='0'></stop>
+                        <stop
+                            offset='0.5'
+                            stop-color='#008736'
+                            stop-opacity='0.5'
+                        ></stop>
+                        <stop offset='.9' stop-opacity='0'></stop>
+                    </linearGradient>
+                </defs>
+
+                <g ref={context}>
+                    <line
+                        stroke-width={4}
+                        stroke='darkorange'
+                        x1={-2000}
+                        y1={0}
+                        x2={2000}
+                        y2={0}
+                    />
+                    <line
+                        stroke-width={4}
+                        stroke='darkorange'
+                        x1={0}
+                        y1={-2000}
+                        x2={0}
+                        y2={2000}
+                    />
+                </g>
+            </svg>
+            {/*<canvas
                 style={{ width: '75%', height: '100%' }}
                 ref={e => {
                     canvas = e
@@ -334,7 +494,7 @@ const App: Component = () => {
                     let k = (camera.y - canvas.height / 2) * camera.zoom
                     k += canvas.height / 2
 
-                    console.log(-canvas.width / 2 + camera.x, j)
+                    // console.log(-canvas.width / 2 + camera.x, j)
                     // j = -canvas.width / 2 + camera.x
                     // -canvas.height / 2 + camera.y
 
@@ -355,8 +515,29 @@ const App: Component = () => {
 
                     update_canvas()
                 }}
-            />
-            <div class='info'></div>
+            />*/}
+            <div class='info'>
+                <div class='row'>
+                    <label for='info_input_repo'>repo: </label>
+                    <input id='info_input_repo' />
+                </div>
+                <div class='row col'>
+                    <label for='info_input_detail'>detail: </label>
+                    <textarea id='info_input_detail' rows='6' />
+                </div>
+                <div class='row'>
+                    <label for='info_input_datetime'>datetime: </label>
+                    <input id='info_input_datetime' type='datetime-local' />
+                </div>
+                <div class='row'>
+                    <label for='info_input_timestamp'>timestamp: </label>
+                    <input id='info_input_timestamp' />
+                </div>
+                <div class='row'>
+                    <button class='add'>add child</button>
+                    <button class='del'>delete</button>
+                </div>
+            </div>
         </main>
     )
 }
