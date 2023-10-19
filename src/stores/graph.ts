@@ -6,6 +6,7 @@ import { createStore } from 'solid-js/store'
 type Cords = { x: number; y: number }
 
 type GraphNode = {
+    path: string
     repo: Repo
     x: number
     y: number
@@ -44,6 +45,7 @@ createEffect(() => {
 
     function make_nodes_and_edges(
         data: Projects,
+        path: string,
         level: number = 0,
         parent?: Project
     ) {
@@ -51,6 +53,12 @@ createEffect(() => {
         let end_edges: Cords[] = []
 
         Object.entries(data).forEach(([repo, p], i, a) => {
+            if (repo != p.repo) {
+                let msg = `invalid repo key at: ${path}${repo} != ${path}${p.repo}`
+                alert(msg)
+                throw new Error(msg)
+            }
+
             let mx = x
             let y = BASE_Y - level * 256
 
@@ -65,7 +73,12 @@ createEffect(() => {
             }
 
             if (p.childs) {
-                let cinfo = make_nodes_and_edges(p.childs, level + 1, p)
+                let cinfo = make_nodes_and_edges(
+                    p.childs,
+                    path + p.repo + ':',
+                    level + 1,
+                    p
+                )
                 width += cinfo.width
                 mx += cinfo.width / 2 - NODE_W_AND_P / 2
 
@@ -84,6 +97,7 @@ createEffect(() => {
             end_edges.push({ x: mx + SX, y: y + SY })
 
             nodes.push({
+                path: path + repo,
                 repo,
                 n,
                 x: mx,
@@ -99,7 +113,7 @@ createEffect(() => {
         return { width, end_edges }
     }
 
-    let cinfo = make_nodes_and_edges(projects)
+    let cinfo = make_nodes_and_edges(projects, '')
 
     cinfo.end_edges.forEach((e, i, a) => {
         let sw = ROOT_W / a.length

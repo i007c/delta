@@ -1,12 +1,6 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
-import {
-    Component,
-    createEffect,
-    createSignal,
-    onCleanup,
-    onMount,
-} from 'solid-js'
+import { Component, createEffect, onCleanup, onMount } from 'solid-js'
 import { render } from 'solid-js/web'
 import 'style/index.scss'
 
@@ -16,14 +10,15 @@ var context: SVGGElement
 var svg: SVGSVGElement
 const SVGNS = 'http://www.w3.org/2000/svg'
 
-import { Repo, graph } from 'stores'
+import { graph, Project, projects } from 'stores'
 import type { GraphNode, GraphEdge } from 'stores'
+import { createStore } from 'solid-js/store'
 
 var ANIME: NodeJS.Timer
 var transform = {
     x: 0,
     y: 0,
-    z: 0.2,
+    z: 2,
 }
 
 var drag = {
@@ -236,7 +231,7 @@ function render_data(nodes: GraphNode[], edges: GraphEdge[]) {
     edges.forEach(({ s, c, d, e }) => {
         let path_data = `M ${s.x} ${s.y} C ${c.x} ${c.y} ${d.x} ${d.y} ${e.x} ${e.y}`
         let path = document.createElementNS(SVGNS, 'path')
-        path.setAttributeNS(null, 'd', path_data)
+        path.setAttribute('d', path_data)
         context.appendChild(path)
 
         // let line = document.createElementNS(SVGNS, 'line')
@@ -256,20 +251,19 @@ function render_data(nodes: GraphNode[], edges: GraphEdge[]) {
 
     nodes.forEach(n => {
         let rect = document.createElementNS(SVGNS, 'rect')
-        rect.setAttributeNS(null, 'x', n.x.toString())
-        rect.setAttributeNS(null, 'y', n.y.toString())
-        rect.setAttributeNS(null, 'width', n.w.toString())
-        rect.setAttributeNS(null, 'height', n.h.toString())
-        rect.setAttributeNS(null, 'rx', '10')
-        rect.setAttributeNS(null, 'stroke', '#f6b232')
-        rect.setAttributeNS(null, 'fill', 'none')
+        rect.setAttribute('x', n.x.toString())
+        rect.setAttribute('y', n.y.toString())
+        rect.setAttribute('width', n.w.toString())
+        rect.setAttribute('height', n.h.toString())
+        rect.setAttribute('rx', '10')
+        rect.setAttribute('data-path', n.path)
         context.appendChild(rect)
         let text = document.createElementNS(SVGNS, 'text')
         text.textContent = `${n.n} - ${n.repo}`
-        text.setAttributeNS(null, 'width', n.w.toString())
-        text.setAttributeNS(null, 'x', (n.x + n.w / 2).toString())
-        text.setAttributeNS(null, 'y', (n.y + n.h / 2).toString())
-        text.setAttributeNS(null, 'text-anchor', 'middle')
+        text.setAttribute('width', n.w.toString())
+        text.setAttribute('x', (n.x + n.w / 2).toString())
+        text.setAttribute('y', (n.y + n.h / 2).toString())
+        text.setAttribute('text-anchor', 'middle')
         context.appendChild(text)
         // text.setAttributeNS(null, )
         // context.beginPath()
@@ -338,18 +332,26 @@ function update_viewbox() {
     context.style.translate = `${transform.x}px ${transform.y}px`
 }
 
+type Active = {
+    project: Project
+    clear(): void
+}
+
 const App: Component = () => {
-    const [active, setActive] = createSignal<Repo | null>(null)
+    const [active, setActive] = createStore<Active>({
+        project: {
+            repo: '',
+            datetime: 0,
+            detail: '',
+        },
+        clear() {},
+    })
 
     onMount(() => {
-        onresize = () => {
-            // update_canvas()
-        }
+        // const { width, height } = svg.viewBox.baseVal
 
-        const { width, height } = svg.viewBox.baseVal
-
-        transform.x = 50
-        transform.y = height / 2
+        transform.x = -900
+        transform.y = 300
 
         update_viewbox()
         // render_data()
@@ -369,7 +371,45 @@ const App: Component = () => {
         <main>
             <svg
                 onClick={e => {
-                    console.log(e.target)
+                    if (e.target && e.target.tagName == 'rect') {
+                        let path = e.target.getAttribute('data-path')
+                        if (path) {
+                            let keys = path.split(':')
+                            let obj = projects
+                            for (let i = 0; i < keys.length; i++) {
+                                let r = keys[i]!
+                                if (!obj[r]) break
+
+                                let p = obj[r]!
+
+                                if (i == keys.length - 1) {
+                                    if (p.repo == r) {
+                                        let el = e.target as SVGRectElement
+                                        active.clear()
+                                        setActive({
+                                            project: p,
+                                            clear() {
+                                                el.style.stroke = ''
+                                            },
+                                        })
+                                        el.style.stroke = 'url(#node_stk_a)'
+                                        return
+                                    }
+                                }
+
+                                if (!p.childs) {
+                                    break
+                                }
+
+                                obj = p.childs
+                            }
+                        }
+                    }
+
+                    active.clear()
+                    setActive({
+                        project: { repo: '', detail: '', datetime: 0 },
+                    })
                 }}
                 ref={svg}
                 viewBox='0 0 1000 1000'
@@ -439,6 +479,16 @@ const App: Component = () => {
                         ></stop>
                         <stop offset='.9' stop-opacity='0'></stop>
                     </linearGradient>
+                    <linearGradient id='node_stk' x1='0' y1='0' x2='1' y2='1'>
+                        <stop offset='0.2' stop-color='#008736'></stop>
+                        <stop offset='0.5' stop-opacity='0'></stop>
+                        <stop offset='0.8' stop-color='#008736'></stop>
+                    </linearGradient>
+                    <linearGradient id='node_stk_a' x1='0' y1='0' x2='1' y2='1'>
+                        <stop offset='0.2' stop-color='#143fb4'></stop>
+                        <stop offset='0.5' stop-opacity='0'></stop>
+                        <stop offset='0.8' stop-color='#143fb4'></stop>
+                    </linearGradient>
                 </defs>
 
                 <g ref={context}>
@@ -460,6 +510,36 @@ const App: Component = () => {
                     />
                 </g>
             </svg>
+            <div class='info'>
+                <div class='row'>
+                    <label for='info_input_repo'>repo: </label>
+                    <input id='info_input_repo' value={active.project.repo} />
+                </div>
+
+                <div class='row col'>
+                    <label for='info_input_detail'>detail: </label>
+                    <textarea
+                        id='info_input_detail'
+                        rows='6'
+                        value={active.project.detail}
+                    />
+                </div>
+                <div class='row'>
+                    <label for='info_input_datetime'>datetime: </label>
+                    <input id='info_input_datetime' type='datetime-local' />
+                </div>
+                <div class='row'>
+                    <label for='info_input_timestamp'>timestamp: </label>
+                    <input
+                        id='info_input_timestamp'
+                        value={active.project.datetime}
+                    />
+                </div>
+                <div class='row'>
+                    <button class='add'>add child</button>
+                    <button class='del'>delete</button>
+                </div>
+            </div>
             {/*<canvas
                 style={{ width: '75%', height: '100%' }}
                 ref={e => {
@@ -516,28 +596,6 @@ const App: Component = () => {
                     update_canvas()
                 }}
             />*/}
-            <div class='info'>
-                <div class='row'>
-                    <label for='info_input_repo'>repo: </label>
-                    <input id='info_input_repo' />
-                </div>
-                <div class='row col'>
-                    <label for='info_input_detail'>detail: </label>
-                    <textarea id='info_input_detail' rows='6' />
-                </div>
-                <div class='row'>
-                    <label for='info_input_datetime'>datetime: </label>
-                    <input id='info_input_datetime' type='datetime-local' />
-                </div>
-                <div class='row'>
-                    <label for='info_input_timestamp'>timestamp: </label>
-                    <input id='info_input_timestamp' />
-                </div>
-                <div class='row'>
-                    <button class='add'>add child</button>
-                    <button class='del'>delete</button>
-                </div>
-            </div>
         </main>
     )
 }

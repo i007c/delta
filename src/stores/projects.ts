@@ -60,7 +60,7 @@ const DEFAULT: Projects = {
         },
     },
     'i007c/delta': {
-        repo: 'i007c/deltaa',
+        repo: 'i007c/delta',
         detail: 'project tree viewer',
         datetime: 1697501934,
     },
