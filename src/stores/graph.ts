@@ -1,12 +1,11 @@
 import { createEffect } from 'solid-js'
-import type { Repo, Projects, Project } from './projects'
+import type { Repo } from './projects'
 import { projects } from './projects'
 import { createStore } from 'solid-js/store'
 
 type Cords = { x: number; y: number }
 
 type GraphNode = {
-    path: string
     repo: Repo
     x: number
     y: number
@@ -16,6 +15,7 @@ type GraphNode = {
     n: number
 }
 type GraphEdge = {
+    repos: Repo[]
     s: Cords
     c: Cords
     d: Cords
@@ -25,65 +25,114 @@ type GraphEdge = {
 type Graph = {
     edges: GraphEdge[]
     nodes: GraphNode[]
+    root: Cords & { w: number }
 }
 
-const [graph, setGraph] = createStore<Graph>({ edges: [], nodes: [] })
+type NestedProject = {
+    repo: Repo
+    childs?: NestedProjects
+    detail: string
+    datetime: number
+}
+type NestedProjects = {
+    [k: Repo]: NestedProject
+}
+
+const [graph, setGraph] = createStore<Graph>({
+    edges: [],
+    nodes: [],
+    root: { x: 0, y: 0, w: 0 },
+})
 
 const NODE_W_AND_P = 256
-const BASE_Y = 20
+const BASE_Y = 0
 const ROOT_W = 256
 
 const SX = 128 / 2
 const SY = 128 / 2
 
+function get_nested(repos: string[]): NestedProjects {
+    let obj: NestedProjects = {}
+    repos.forEach(r => {
+        let proj = projects[r]
+        if (!proj) return
+        obj[r] = {
+            repo: r,
+            datetime: proj.datetime,
+            detail: proj.detail,
+        }
+        if (proj.childs && proj.childs.length) {
+            obj[r]!.childs = get_nested(proj.childs)
+        }
+    })
+    return obj
+}
+
 createEffect(() => {
     let x = 0
     let n = 0
+    let nested_projects: NestedProjects = {}
 
-    const edges: GraphEdge[] = []
-    const nodes: GraphNode[] = []
+    Object.entries(projects).forEach(([repo, p]) => {
+        if (repo != p.repo) {
+            let msg = `invalid repo key at: ${repo} != ${p.repo}`
+            alert(msg)
+            throw new Error(msg)
+        }
+
+        if (p.parent) return
+
+        if (!nested_projects[repo]) {
+            nested_projects[repo] = {
+                repo,
+                datetime: p.datetime,
+                detail: p.detail,
+            }
+            if (p.childs) {
+                nested_projects[repo]!.childs = get_nested(p.childs)
+            }
+        }
+    })
+
+    let edges: GraphEdge[] = []
+    let nodes: GraphNode[] = []
 
     function make_nodes_and_edges(
-        data: Projects,
-        path: string,
+        data: NestedProjects,
         level: number = 0,
-        parent?: Project
+        added_y: number = 0,
+        parent?: NestedProject
     ) {
         let width = 0
-        let end_edges: Cords[] = []
+        let end_edges: (Cords & { repos: string[] })[] = []
+        let all_repos: Repo[] = []
 
         Object.entries(data).forEach(([repo, p], i, a) => {
-            if (repo != p.repo) {
-                let msg = `invalid repo key at: ${path}${repo} != ${path}${p.repo}`
-                alert(msg)
-                throw new Error(msg)
-            }
-
             let mx = x
-            let y = BASE_Y - level * 256
+            let y = BASE_Y - level * 256 + added_y
 
             if (parent && a.length > 2) {
                 let c = a.length / 2
-                y = BASE_Y - level * 128
+                y = BASE_Y - level * 128 + added_y
                 if (i < c) {
-                    y += (i + 1) * -128
+                    y += (i + 1) * -64
                 } else {
-                    y += (a.length - i) * -128
+                    y += (a.length - i) * -64
                 }
             }
 
-            if (p.childs) {
-                let cinfo = make_nodes_and_edges(
-                    p.childs,
-                    path + p.repo + ':',
-                    level + 1,
-                    p
-                )
+            let repos = [p.repo]
+
+            if (p.childs && Object.keys(p.childs).length) {
+                let cinfo = make_nodes_and_edges(p.childs, level + 1, y, p)
                 width += cinfo.width
                 mx += cinfo.width / 2 - NODE_W_AND_P / 2
 
+                repos = repos.concat(cinfo.repos)
+
                 cinfo.end_edges.forEach(e => {
                     edges.push({
+                        repos: e.repos,
                         s: { x: mx + SX, y: y + SY },
                         c: { x: mx + SX, y: e.y },
                         d: { x: e.x, y: y + SY },
@@ -92,12 +141,17 @@ createEffect(() => {
                 })
             } else {
                 width += NODE_W_AND_P
+                x += NODE_W_AND_P
             }
 
-            end_edges.push({ x: mx + SX, y: y + SY })
+            all_repos = all_repos.concat(repos)
+            end_edges.push({
+                x: mx + SX,
+                y: y + SY,
+                repos,
+            })
 
             nodes.push({
-                path: path + repo,
                 repo,
                 n,
                 x: mx,
@@ -107,13 +161,13 @@ createEffect(() => {
                 bw: width,
             })
             n++
-            x += NODE_W_AND_P
         })
 
-        return { width, end_edges }
+        return { width, end_edges, repos: all_repos }
     }
 
-    let cinfo = make_nodes_and_edges(projects, '')
+    let cinfo = make_nodes_and_edges(nested_projects, 0)
+    let y = BASE_Y + 512
 
     cinfo.end_edges.forEach((e, i, a) => {
         let sw = ROOT_W / a.length
@@ -121,9 +175,8 @@ createEffect(() => {
         mx -= ROOT_W / 2
         mx += cinfo.width / 2
 
-        let y = BASE_Y + 512
-
         edges.push({
+            repos: e.repos,
             s: { x: mx, y },
             c: { x: mx, y: e.y },
             d: { x: e.x, y },
@@ -131,7 +184,15 @@ createEffect(() => {
         })
     })
 
-    setGraph({ nodes, edges })
+    setGraph({
+        nodes,
+        edges,
+        root: {
+            x: cinfo.width / 2,
+            y,
+            w: cinfo.width,
+        },
+    })
 })
 
 export { graph, setGraph }

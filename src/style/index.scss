@@ -39,6 +39,7 @@ body {
 
             canvas,
             svg {
+                user-select: none;
                 max-width: 75%;
                 // width: 75%;
                 max-height: 100%;
@@ -53,6 +54,10 @@ body {
                 rect {
                     fill: #040404;
                     stroke: url(#node_stk);
+
+                    &.active {
+                        stroke: url(#node_stk_a);
+                    }
                 }
 
                 text {
@@ -60,14 +65,20 @@ body {
                     font-family: monospace;
                     font-size: 18px;
                     text-align: center;
-                    user-select: none;
                     pointer-events: none;
                 }
 
                 path {
                     fill: none;
-                    stroke: url(#branch);
+                    stroke: #008736;
+                    // stroke: url(#branch);
+                    stroke-opacity: 0.5;
                     stroke-width: 10px;
+
+                    &.active {
+                        stroke-opacity: 1;
+                        stroke: #143fb4;
+                    }
                 }
             }
 
