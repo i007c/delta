@@ -33,7 +33,7 @@ function render_data(nodes: GraphNode[], edges: GraphEdge[]) {
         let path_data = `M ${s.x} ${s.y} C ${c.x} ${c.y} ${d.x} ${d.y} ${e.x} ${e.y}`
         let path = document.createElementNS(SVGNS, 'path')
         path.setAttribute('d', path_data)
-        path.setAttribute('data-repos', repos.join(' '))
+        path.setAttribute('data-repos', ' ' + repos.join(' ') + ' ')
         context.appendChild(path)
     })
 
@@ -117,7 +117,7 @@ const App: Component = () => {
 
         let el = g.querySelector('rect')!
         let edges = svg.querySelectorAll<SVGPathElement>(
-            '[data-repos*="' + repo + '"]'
+            '[data-repos*=" ' + repo + ' "]'
         )
 
         active.clear()
@@ -242,7 +242,43 @@ const App: Component = () => {
             <div class='info'>
                 <div class='row'>
                     <label for='info_input_repo'>repo: </label>
-                    <input id='info_input_repo' value={active.project.repo} />
+                    <input
+                        id='info_input_repo'
+                        value={active.project.repo}
+                        onInput={e => {
+                            if (!active.repo) return
+
+                            let nrepo = e.currentTarget.value
+                            if (nrepo.length > 100 || nrepo.length < 3) return
+
+                            setProjects(
+                                produce(s => {
+                                    let p = s[active.repo]
+                                    if (!p) return
+
+                                    if (p.parent) {
+                                        let pp = s[p.parent]!
+                                        if (pp.childs) {
+                                            let idx = pp.childs.indexOf(p.repo)
+                                            if (idx != -1)
+                                                pp.childs[idx] = nrepo
+                                        }
+                                    }
+
+                                    if (p.childs) {
+                                        p.childs.forEach(
+                                            c => (s[c]!.parent = nrepo)
+                                        )
+                                    }
+
+                                    s[nrepo] = p
+                                    delete s[p.repo]
+                                    p.repo = nrepo
+                                    setActive({ repo: nrepo })
+                                })
+                            )
+                        }}
+                    />
                 </div>
 
                 <div class='row col'>
