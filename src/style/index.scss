@@ -66,6 +66,8 @@ body {
                     font-size: 18px;
                     text-align: center;
                     pointer-events: none;
+                    text-anchor: middle;
+                    dominant-baseline: middle;
                 }
 
                 path {
@@ -74,6 +76,15 @@ body {
                     // stroke: url(#branch);
                     stroke-opacity: 0.5;
                     stroke-width: 10px;
+                    transition:
+                        stroke-width 40ms ease-in,
+                        stroke 300ms ease-in-out;
+
+                    &:hover {
+                        stroke-opacity: 1;
+                        stroke-width: 40px;
+                        stroke: var(--accent-color);
+                    }
 
                     &.active {
                         stroke-opacity: 1;

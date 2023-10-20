@@ -16,6 +16,7 @@ type GraphNode = {
 }
 type GraphEdge = {
     repos: Repo[]
+    target: Repo
     s: Cords
     c: Cords
     d: Cords
@@ -44,12 +45,12 @@ const [graph, setGraph] = createStore<Graph>({
     root: { x: 0, y: 0, w: 0 },
 })
 
-const NODE_W_AND_P = 256
+const NODE_W_AND_P = 256 + 128
 const BASE_Y = 0
 const ROOT_W = 256
 
-const SX = 128 / 2
-const SY = 128 / 2
+const SX = 256 / 2
+const SY = 64 / 2
 
 function get_nested(repos: string[]): NestedProjects {
     let obj: NestedProjects = {}
@@ -104,7 +105,7 @@ createEffect(() => {
         parent?: NestedProject
     ) {
         let width = 0
-        let end_edges: (Cords & { repos: string[] })[] = []
+        let end_edges: (Cords & { repos: Repo[]; target: Repo })[] = []
         let all_repos: Repo[] = []
 
         Object.entries(data).forEach(([repo, p], i, a) => {
@@ -124,7 +125,7 @@ createEffect(() => {
             let repos = [p.repo]
 
             if (p.childs && Object.keys(p.childs).length) {
-                let cinfo = make_nodes_and_edges(p.childs, level + 1, y, p)
+                let cinfo = make_nodes_and_edges(p.childs, level + 1, y + 64, p)
                 width += cinfo.width
                 mx += cinfo.width / 2 - NODE_W_AND_P / 2
 
@@ -132,6 +133,7 @@ createEffect(() => {
 
                 cinfo.end_edges.forEach(e => {
                     edges.push({
+                        target: e.target,
                         repos: e.repos,
                         s: { x: mx + SX, y: y + SY },
                         c: { x: mx + SX, y: e.y },
@@ -149,6 +151,7 @@ createEffect(() => {
                 x: mx + SX,
                 y: y + SY,
                 repos,
+                target: p.repo,
             })
 
             nodes.push({
@@ -156,8 +159,8 @@ createEffect(() => {
                 n,
                 x: mx,
                 y,
-                w: 128,
-                h: 128,
+                w: 256,
+                h: 64,
                 bw: width,
             })
             n++
@@ -176,6 +179,7 @@ createEffect(() => {
         mx += cinfo.width / 2
 
         edges.push({
+            target: e.target,
             repos: e.repos,
             s: { x: mx, y },
             c: { x: mx, y: e.y },

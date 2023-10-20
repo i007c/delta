@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
-import { Component, createEffect, on } from 'solid-js'
+import { Component, createEffect, on, onMount } from 'solid-js'
 import { render } from 'solid-js/web'
 import 'style/index.scss'
 
@@ -29,11 +29,12 @@ var drag = {
 function render_data(nodes: GraphNode[], edges: GraphEdge[]) {
     context.innerHTML = ''
 
-    edges.forEach(({ s, c, d, e, repos }) => {
+    edges.forEach(({ s, c, d, e, repos, target }) => {
         let path_data = `M ${s.x} ${s.y} C ${c.x} ${c.y} ${d.x} ${d.y} ${e.x} ${e.y}`
         let path = document.createElementNS(SVGNS, 'path')
         path.setAttribute('d', path_data)
         path.setAttribute('data-repos', ' ' + repos.join(' ') + ' ')
+        path.setAttribute('data-target', target)
         context.appendChild(path)
     })
 
@@ -50,11 +51,10 @@ function render_data(nodes: GraphNode[], edges: GraphEdge[]) {
         g.appendChild(rect)
 
         let text = document.createElementNS(SVGNS, 'text')
-        text.textContent = `${n.n} - ${n.repo}`
+        text.textContent = `${n.repo}`
         text.setAttribute('width', n.w.toString())
         text.setAttribute('x', (n.x + n.w / 2).toString())
         text.setAttribute('y', (n.y + n.h / 2).toString())
-        text.setAttribute('text-anchor', 'middle')
         g.appendChild(text)
 
         context.appendChild(g)
@@ -81,6 +81,15 @@ const App: Component = () => {
             return p
         },
         clear() {},
+    })
+
+    onMount(() => {
+        onresize = () => {
+            svg.viewBox.baseVal.width = (innerWidth / 100) * 75
+            svg.viewBox.baseVal.height = innerHeight
+        }
+        svg.viewBox.baseVal.width = (innerWidth / 100) * 75
+        svg.viewBox.baseVal.height = innerHeight
     })
 
     createEffect(
@@ -132,18 +141,28 @@ const App: Component = () => {
 
         edges.forEach(e => e.classList.add('active'))
         el.classList.add('active')
+
+        const { x, y, width, height } = el.getBBox()
+        const v = svg.viewBox.baseVal
+        const z = 1.5
+        transform.z = z
+        transform.x = -x * z + v.width / 2 - width
+        transform.y = -y * z + v.height / 2 - height
+        update_viewbox()
     }
 
     return (
         <main>
             <svg
                 ref={svg}
-                viewBox='0 0 1000 1000'
+                viewBox={`0 0 ${(innerWidth / 100) * 75} ${innerHeight}`}
                 onContextMenu={e => {
                     e.preventDefault()
-                    transform.x =
-                        -graph.root.x * transform.z +
-                        svg.viewBox.baseVal.width / 2
+
+                    const v = svg.viewBox.baseVal
+
+                    transform.z = v.width / (graph.root.w + graph.root.w * 0.1)
+                    transform.x = -graph.root.x * transform.z + v.width / 2
                     transform.y = graph.root.y
                     update_viewbox()
                 }}
@@ -169,6 +188,23 @@ const App: Component = () => {
                         transform.z = oz
                     }
                 }}
+                onDblClick={e => {
+                    if (e.target.tagName != 'svg') return
+
+                    // const v = svg.viewBox.baseVal
+
+                    transform.z = 0.7
+                    // transform.x =
+                    //     -(e.clientX - transform.x - v.width / 2) / transform.z
+
+                    update_viewbox()
+
+                    // const { x, y, width, height } = el.getBBox()
+                    //         const z = 1.5
+                    //         transform.z = z
+                    //         transform.x = -x * z + v.width / 2 - width
+                    //         transform.y = -y * z + v.height / 2 - height
+                }}
                 onMouseDown={e => {
                     if (e.button) return
 
@@ -179,15 +215,22 @@ const App: Component = () => {
                         y: e.clientY,
                     }
 
-                    if (
-                        !e.target ||
-                        !e.target.parentElement ||
-                        e.target.parentElement.tagName != 'g'
-                    )
-                        return
+                    if (!e.target) return
 
-                    // @ts-ignore
-                    set_active_g(e.target.parentElement)
+                    if (e.target.tagName == 'path') {
+                        let repo = e.target.getAttribute('data-target')
+                        if (!repo) return
+
+                        let g = svg.querySelector<SVGGElement>(
+                            '[data-repo="' + repo + '"]'
+                        )
+                        if (g) set_active_g(g)
+                    } else if (e.target.tagName == 'rect') {
+                        if (e.target.parentElement!.tagName == 'g') {
+                            // @ts-ignore
+                            set_active_g(e.target.parentElement)
+                        }
+                    }
                 }}
                 onMouseUp={() => {
                     drag.active = false
