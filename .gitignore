@@ -9,3 +9,4 @@ libwatch.so
 .ccls-cache/
 *.o
 package-lock.json
+db/
