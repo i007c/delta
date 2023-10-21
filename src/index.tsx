@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
-import { Component, createEffect, on, onMount } from 'solid-js'
+import { Component, createEffect, on, onMount, Show } from 'solid-js'
 import { render } from 'solid-js/web'
 import 'style/index.scss'
 
@@ -110,8 +110,7 @@ const App: Component = () => {
                     setState({
                         tz,
                         tx: -graph.root.x * tz + v.width / 2,
-                        ty: graph.root.y,
-                        td: true,
+                        ty: graph.root.y * tz + v.height,
                     })
                 }
                 render_data(graph.nodes, graph.edges)
@@ -210,6 +209,48 @@ const App: Component = () => {
                 }}
                 onMouseDown={e => {
                     if (e.button) return
+
+                    if (
+                        e.ctrlKey &&
+                        e.shiftKey &&
+                        active.repo &&
+                        e.target &&
+                        e.target.tagName == 'rect' &&
+                        e.target.parentElement!.tagName == 'g'
+                    ) {
+                        let repo =
+                            e.target.parentElement!.getAttribute('data-repo') ||
+                            ''
+
+                        setProjects(
+                            produce(s => {
+                                let child = s[active.repo]
+                                let parent = s[repo]
+
+                                if (!child || !parent) return
+
+                                if (parent.childs) {
+                                    parent.childs.push(child.repo)
+                                } else {
+                                    parent.childs = [child.repo]
+                                }
+
+                                if (child.parent) {
+                                    let cp = s[child.parent]
+                                    if (cp && cp.childs) {
+                                        cp.childs = cp.childs.filter(
+                                            s => s != child!.repo
+                                        )
+                                    }
+                                }
+
+                                child.parent = parent.repo
+                            })
+                        )
+
+                        setState({ text: '' })
+                        return
+                    }
 
                     drag = {
                         active: true,
@@ -368,21 +409,23 @@ const App: Component = () => {
                             }}
                         />
                     </div>
-                    <a
-                        class='project_url'
-                        href={active.project.url}
-                        target='_blank'
-                    >
-                        {(() => {
-                            try {
-                                return new URL(
-                                    active.project.url
-                                ).pathname.slice(1)
-                            } catch {
-                                return active.project.url
-                            }
-                        })()}
-                    </a>
+                    <Show when={active.project.url}>
+                        <a
+                            class='project_url'
+                            href={active.project.url}
+                            target='_blank'
+                        >
+                            {(() => {
+                                try {
+                                    return new URL(
+                                        active.project.url
+                                    ).pathname.slice(1)
+                                } catch {
+                                    return active.project.url
+                                }
+                            })()}
+                        </a>
+                    </Show>
                 </div>
 
                 <div class='row col'>
@@ -486,6 +529,8 @@ const App: Component = () => {
                                     }
                                 })
                             )
+
+                            setActive({ repo: urepo })
                         }}
                     >
                         add child

@@ -1,5 +1,5 @@
 import { createEffect } from 'solid-js'
-import type { Repo } from './projects'
+import type { Repo, Project } from './projects'
 import { projects } from './projects'
 import { createStore } from 'solid-js/store'
 
@@ -48,15 +48,16 @@ const [graph, setGraph] = createStore<Graph>({
 const NODE_W = 128
 const NODE_H = 128 * 0.75
 const NODE_W_AND_P = NODE_W * 1.5
-const BASE_Y = 0
 const ROOT_W = 256
 
 const SX = NODE_W / 2
 const SY = NODE_W / 2
 
-function get_nested(repos: string[]): NestedProjects {
+function get_nested(parent: Project, repos: string[]): NestedProjects {
     let obj: NestedProjects = {}
     repos.forEach(r => {
+        if (r == parent.repo) return
+
         let proj = projects[r]
         if (!proj) return
         obj[r] = {
@@ -65,7 +66,7 @@ function get_nested(repos: string[]): NestedProjects {
             detail: proj.detail,
         }
         if (proj.childs && proj.childs.length) {
-            obj[r]!.childs = get_nested(proj.childs)
+            obj[r]!.childs = get_nested(proj, proj.childs)
         }
     })
     return obj
@@ -92,7 +93,7 @@ createEffect(() => {
                 detail: p.detail,
             }
             if (p.childs) {
-                nested_projects[repo]!.childs = get_nested(p.childs)
+                nested_projects[repo]!.childs = get_nested(p, p.childs)
             }
         }
     })
