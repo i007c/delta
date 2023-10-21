@@ -45,12 +45,14 @@ const [graph, setGraph] = createStore<Graph>({
     root: { x: 0, y: 0, w: 0 },
 })
 
-const NODE_W_AND_P = 256 + 128
+const NODE_W = 128
+const NODE_H = 128 * 0.75
+const NODE_W_AND_P = NODE_W * 1.5
 const BASE_Y = 0
 const ROOT_W = 256
 
-const SX = 256 / 2
-const SY = 64 / 2
+const SX = NODE_W / 2
+const SY = NODE_W / 2
 
 function get_nested(repos: string[]): NestedProjects {
     let obj: NestedProjects = {}
@@ -110,11 +112,11 @@ createEffect(() => {
 
         Object.entries(data).forEach(([repo, p], i, a) => {
             let mx = x
-            let y = BASE_Y - level * 256 + added_y
+            let y = added_y - NODE_H * 2
 
             if (parent && a.length > 2) {
                 let c = a.length / 2
-                y = BASE_Y - level * 128 + added_y
+                y = added_y - NODE_H * 2
                 if (i < c) {
                     y += (i + 1) * -64
                 } else {
@@ -125,7 +127,7 @@ createEffect(() => {
             let repos = [p.repo]
 
             if (p.childs && Object.keys(p.childs).length) {
-                let cinfo = make_nodes_and_edges(p.childs, level + 1, y + 64, p)
+                let cinfo = make_nodes_and_edges(p.childs, level + 1, y, p)
                 width += cinfo.width
                 mx += cinfo.width / 2 - NODE_W_AND_P / 2
 
@@ -159,8 +161,8 @@ createEffect(() => {
                 n,
                 x: mx,
                 y,
-                w: 256,
-                h: 64,
+                w: NODE_W,
+                h: NODE_H,
                 bw: width,
             })
             n++
@@ -170,7 +172,7 @@ createEffect(() => {
     }
 
     let cinfo = make_nodes_and_edges(nested_projects, 0)
-    let y = BASE_Y + 512
+    let y = 0
 
     cinfo.end_edges.forEach((e, i, a) => {
         let sw = ROOT_W / a.length
@@ -193,7 +195,7 @@ createEffect(() => {
         edges,
         root: {
             x: cinfo.width / 2,
-            y,
+            y: 0,
             w: cinfo.width,
         },
     })

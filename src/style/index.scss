@@ -17,9 +17,11 @@ body {
     background-color: #040404;
     color: #f2f2f2;
 
-    --white-color: #f2f2f2;
-    --accent-color: #f6b232; // #117243 #00dc7d #143fb4 #f6b232 #3f3129
-    --red-color: #e20338;
+    --white: #f2f2f2;
+    --accent: #f6b232; // #117243 #00dc7d #143fb4 #f6b232 #3f3129
+    --red: #e20338;
+    --blue: #5199ff;
+    --green: #00dc7d;
     font-family: monospace;
 
     .root {
@@ -35,15 +37,15 @@ body {
             justify-content: center;
             align-items: center;
             padding: 1rem;
+
             gap: 1rem;
 
             canvas,
             svg {
                 user-select: none;
                 max-width: 75%;
-                // width: 75%;
-                max-height: 100%;
-                border: 1px solid #f2f2f2;
+                height: 100%;
+                border: 2px solid var(--blue);
                 border-radius: 7px;
 
                 line {
@@ -51,23 +53,40 @@ body {
                     opacity: 0.2;
                 }
 
-                rect {
-                    fill: #040404;
-                    stroke: url(#node_stk);
-
-                    &.active {
-                        stroke: url(#node_stk_a);
-                    }
-                }
-
-                text {
-                    fill: #f2f2f2;
-                    font-family: monospace;
-                    font-size: 18px;
-                    text-align: center;
+                .active-node {
+                    fill: var(--white);
+                    font-size: 32px;
                     pointer-events: none;
                     text-anchor: middle;
-                    dominant-baseline: middle;
+                }
+
+                g.node {
+                    rect {
+                        fill: #040404;
+                        stroke: url(#node_stk);
+
+                        &.active {
+                            stroke: url(#node_stk_a);
+                        }
+                    }
+
+                    text {
+                        fill: #f2f2f2;
+                        font-family: monospace;
+                        font-size: 18px;
+                        text-align: center;
+                        pointer-events: none;
+                        text-anchor: middle;
+                        dominant-baseline: middle;
+                    }
+
+                    &:hover {
+                        rect {
+                            stroke-opacity: 1;
+                            stroke-width: 4px;
+                            stroke: var(--accent);
+                        }
+                    }
                 }
 
                 path {
@@ -83,7 +102,7 @@ body {
                     &:hover {
                         stroke-opacity: 1;
                         stroke-width: 40px;
-                        stroke: var(--accent-color);
+                        stroke: var(--accent);
                     }
 
                     &.active {
@@ -94,7 +113,7 @@ body {
             }
 
             .info {
-                border: 1px solid var(--accent-color);
+                border: 2px solid var(--accent);
                 border-radius: 7px;
                 width: 25%;
                 height: 100%;
@@ -123,26 +142,32 @@ body {
                         flex-direction: column;
                         align-items: flex-start;
                     }
-                }
 
-                button {
-                    &.add {
-                        border-color: #00dc7d;
-                    }
+                    &.url {
+                        flex-direction: column;
+                        align-items: flex-start;
+                        overflow: hidden;
+                        gap: 0.2rem;
 
-                    &.del {
-                        border-color: var(--red-color);
-                        text-transform: uppercase;
+                        a {
+                            text-align: right;
+                            font-size: 12px;
+                            width: 100%;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            color: var(--blue);
+                        }
                     }
                 }
             }
 
             button {
+                width: 100%;
                 cursor: pointer;
                 background: transparent;
                 color: #f2f2f2;
                 font-size: 18px;
-                border: 2px solid var(--accent-color);
+                border: 2px solid var(--color);
                 padding: 0.2rem 1rem;
                 border-radius: 4px;
             }
@@ -179,6 +204,6 @@ body {
     background-color: #111;
 }
 ::selection {
-    background-color: var(--accent-color);
+    background-color: var(--accent);
     color: #040404;
 }

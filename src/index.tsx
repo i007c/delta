@@ -5,19 +5,14 @@ import { render } from 'solid-js/web'
 import 'style/index.scss'
 
 var context: SVGGElement
+var active_node_text: SVGTextElement
 var svg: SVGSVGElement
 const SVGNS = 'http://www.w3.org/2000/svg'
 
 import { graph, Project, projects, setProjects } from 'stores'
 import type { GraphNode, GraphEdge } from 'stores'
 import { createStore, produce } from 'solid-js/store'
-
-var transform = {
-    x: 0,
-    y: 0,
-    z: 0.5,
-    done: false,
-}
+import { now_iso } from 'utils'
 
 var drag = {
     active: false,
@@ -25,6 +20,14 @@ var drag = {
     x: 0,
     y: 0,
 }
+
+const [state, setState] = createStore({
+    text: '',
+    tz: 0.5,
+    ty: 0,
+    tx: 0,
+    td: false,
+})
 
 function render_data(nodes: GraphNode[], edges: GraphEdge[]) {
     context.innerHTML = ''
@@ -41,6 +44,13 @@ function render_data(nodes: GraphNode[], edges: GraphEdge[]) {
     nodes.forEach(n => {
         let g = document.createElementNS(SVGNS, 'g')
         g.setAttribute('data-repo', n.repo)
+        g.classList.add('node')
+        g.onmouseenter = () => {
+            setState({ text: n.repo })
+        }
+        g.onmouseleave = () => {
+            setState({ text: '' })
+        }
 
         let rect = document.createElementNS(SVGNS, 'rect')
         rect.setAttribute('x', n.x.toString())
@@ -61,11 +71,6 @@ function render_data(nodes: GraphNode[], edges: GraphEdge[]) {
     })
 }
 
-function update_viewbox() {
-    context.style.scale = transform.z.toString()
-    context.style.translate = `${transform.x}px ${transform.y}px`
-}
-
 type Active = {
     repo: string
     project: Project
@@ -74,10 +79,10 @@ type Active = {
 
 const App: Component = () => {
     const [active, setActive] = createStore<Active>({
-        repo: '',
+        repo: 'i007c/apollo',
         get project() {
             let p = projects[this.repo]
-            if (!p) return { repo: '', detail: '', datetime: 0 }
+            if (!p) return { repo: '', detail: '', url: '', datetime: 0 }
             return p
         },
         clear() {},
@@ -99,14 +104,15 @@ const App: Component = () => {
                 graph.nodes
             },
             () => {
-                if (!transform.done) {
-                    // transform.x = -graph.root.x * transform.z + 500
-                    // transform.y = graph.root.y
-                    transform.x = -360
-                    transform.y = 610
-                    transform.z = 0.254
-                    transform.done = true
-                    update_viewbox()
+                if (!state.td) {
+                    const v = svg.viewBox.baseVal
+                    const tz = v.width / (graph.root.w + graph.root.w * 0.1)
+                    setState({
+                        tz,
+                        tx: -graph.root.x * tz + v.width / 2,
+                        ty: graph.root.y,
+                        td: true,
+                    })
                 }
                 render_data(graph.nodes, graph.edges)
                 if (active.repo) {
@@ -145,10 +151,11 @@ const App: Component = () => {
         const { x, y, width, height } = el.getBBox()
         const v = svg.viewBox.baseVal
         const z = 1.5
-        transform.z = z
-        transform.x = -x * z + v.width / 2 - width
-        transform.y = -y * z + v.height / 2 - height
-        update_viewbox()
+        setState({
+            tz: z,
+            tx: -x * z + v.width / 2 - width,
+            ty: -y * z + v.height / 2 - height,
+        })
     }
 
     return (
@@ -160,32 +167,29 @@ const App: Component = () => {
                     e.preventDefault()
 
                     const v = svg.viewBox.baseVal
-
-                    transform.z = v.width / (graph.root.w + graph.root.w * 0.1)
-                    transform.x = -graph.root.x * transform.z + v.width / 2
-                    transform.y = graph.root.y
-                    update_viewbox()
+                    const tz = v.width / (graph.root.w + graph.root.w * 0.1)
+                    setState({
+                        tz,
+                        tx: -graph.root.x * tz + v.width / 2,
+                        ty: graph.root.y * tz + v.height,
+                    })
                 }}
                 onWheel={e => {
                     if (drag.active) return
 
                     const x = e.clientX - svg.viewBox.baseVal.width / 2
                     const y = e.clientY - svg.viewBox.baseVal.height / 2
-                    let a = 1.1
+                    let a = e.deltaY > 0 ? 0.9 : 1.1
+                    let new_tz = state.tz * a
 
-                    if (e.deltaY > 0) {
-                        a = 0.9
-                    }
-
-                    let oz = transform.z
-                    transform.z *= a
-
-                    if (transform.z > 0.1 && transform.z < 2) {
-                        transform.x = x - (x - transform.x) * a
-                        transform.y = y - (y - transform.y) * a
-                        update_viewbox()
-                    } else {
-                        transform.z = oz
+                    if (new_tz > 0.1 && new_tz < 2) {
+                        setState(
+                            produce(s => {
+                                s.tz = new_tz
+                                s.tx = x - (x - s.tx) * a
+                                s.ty = y - (y - s.ty) * a
+                            })
+                        )
                     }
                 }}
                 onDblClick={e => {
@@ -193,11 +197,9 @@ const App: Component = () => {
 
                     // const v = svg.viewBox.baseVal
 
-                    transform.z = 0.7
+                    setState({ tz: 0.75 })
                     // transform.x =
                     //     -(e.clientX - transform.x - v.width / 2) / transform.z
-
-                    update_viewbox()
 
                     // const { x, y, width, height } = el.getBBox()
                     //         const z = 1.5
@@ -239,22 +241,25 @@ const App: Component = () => {
                     drag.active = false
                 }}
                 onMouseMove={e => {
-                    // if (e.target.tagName == 'rect') {
-                    //     // @ts-ignore
-                    //     let g: SVGGElement = e.target.parentElement!
-                    //     let path = g.getAttribute('data-path')!
-                    //
-                    //     set_active_path(path, g)
-                    // }
+                    const { left } = e.currentTarget.getBoundingClientRect()
+
+                    active_node_text.setAttribute(
+                        'x',
+                        (e.clientX + left).toString()
+                    )
+                    active_node_text.setAttribute(
+                        'y',
+                        (e.clientY - 32).toString()
+                    )
 
                     if (drag.active) {
-                        transform.x += (e.clientX - drag.x) * 1
-                        transform.y += (e.clientY - drag.y) * 1
+                        setState(s => ({
+                            tx: s.tx + (e.clientX - drag.x) * 1,
+                            ty: s.ty + (e.clientY - drag.y) * 1,
+                        }))
                         drag.x = e.clientX
                         drag.y = e.clientY
                         drag.moved = true
-
-                        update_viewbox()
                     }
                 }}
             >
@@ -280,7 +285,21 @@ const App: Component = () => {
                     </linearGradient>
                 </defs>
 
-                <g ref={context}></g>
+                <g
+                    ref={context}
+                    style={{
+                        scale: state.tz,
+                        translate: `${state.tx}px ${state.ty}px`,
+                    }}
+                ></g>
+
+                <text
+                    class='active-node'
+                    ref={active_node_text}
+                    display={state.tz < 0.7 ? '' : 'none'}
+                >
+                    {state.text}
+                </text>
             </svg>
             <div class='info'>
                 <div class='row'>
@@ -296,6 +315,8 @@ const App: Component = () => {
 
                             setProjects(
                                 produce(s => {
+                                    if (s[nrepo]) return
+
                                     let p = s[active.repo]
                                     if (!p) return
 
@@ -322,6 +343,45 @@ const App: Component = () => {
                             )
                         }}
                     />
+                </div>
+
+                <div class='row url'>
+                    <div class='row'>
+                        <label for='info_input_url'>url: </label>
+                        <input
+                            id='info_input_url'
+                            value={active.project.url}
+                            onInput={e => {
+                                if (!active.repo) return
+
+                                let new_url = e.currentTarget.value
+
+                                setProjects(
+                                    produce(s => {
+                                        let p = s[active.repo]
+                                        if (!p) return
+
+                                        p.url = new_url
+                                    })
+                                )
+                            }}
+                        />
+                    </div>
+                    <a
+                        class='project_url'
+                        href={active.project.url}
+                        target='_blank'
+                    >
+                        {(() => {
+                            try {
+                                return new URL(
+                                    active.project.url
+                                ).pathname.slice(1)
+                            } catch {
+                                return active.project.url
+                            }
+                        })()}
+                    </a>
                 </div>
 
                 <div class='row col'>
@@ -389,6 +449,7 @@ const App: Component = () => {
                 <div class='row'>
                     <button
                         class='add'
+                        style={{ '--color': 'var(--green)' }}
                         onClick={() => {
                             // if (!active.repo) return
 
@@ -408,6 +469,7 @@ const App: Component = () => {
                                         repo: urepo,
                                         childs: [],
                                         detail: '',
+                                        url: 'https://github.com/i007c/',
                                         datetime: ~~(
                                             new Date().getTime() / 1000
                                         ),
@@ -429,6 +491,7 @@ const App: Component = () => {
                     </button>
                     <button
                         class='del'
+                        style={{ '--color': 'var(--red)' }}
                         onClick={() => {
                             if (!active.repo) return
 
@@ -460,12 +523,55 @@ const App: Component = () => {
                 </div>
                 <div class='row'>
                     <button
-                        style={{ width: '100%' }}
+                        style={{
+                            '--color': 'var(--accent)',
+                        }}
                         onClick={() => {
                             console.log(projects)
                         }}
                     >
-                        LOG
+                        Log
+                    </button>
+                </div>
+                <div class='row'>
+                    <button
+                        style={{
+                            '--color': 'var(--green)',
+                        }}
+                        onClick={() => {
+                            let e = document.createElement('input')
+                            e.setAttribute('type', 'file')
+                            e.setAttribute('accept', 'application/json')
+                            e.onchange = async function () {
+                                e.remove()
+                                if (!e.files || !e.files.length) return
+                                const file = e.files[0]!
+                                if (file.type != 'application/json') return
+
+                                setProjects(JSON.parse(await file.text()))
+                            }
+                            e.click()
+                        }}
+                    >
+                        Import
+                    </button>
+                    <button
+                        style={{
+                            '--color': 'var(--accent)',
+                        }}
+                        onClick={() => {
+                            const url = URL.createObjectURL(
+                                new Blob([JSON.stringify(projects, null, 4)], {
+                                    type: 'application/json',
+                                })
+                            )
+                            chrome.downloads.download({
+                                url,
+                                filename: `delta/export-${now_iso()}.json`,
+                            })
+                        }}
+                    >
+                        Export
                     </button>
                 </div>
             </div>
