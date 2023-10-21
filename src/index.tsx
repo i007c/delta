@@ -97,6 +97,16 @@ const App: Component = () => {
         svg.viewBox.baseVal.height = innerHeight
     })
 
+    function make_center() {
+        const v = svg.viewBox.baseVal
+        const tz = v.width / (graph.root.w + graph.root.w * 0.1)
+        setState({
+            tz,
+            tx: -graph.root.x * tz + v.width / 2,
+            ty: graph.root.y * tz + v.height * 0.85,
+        })
+    }
+
     createEffect(
         on(
             () => {
@@ -105,13 +115,7 @@ const App: Component = () => {
             },
             () => {
                 if (!state.td) {
-                    const v = svg.viewBox.baseVal
-                    const tz = v.width / (graph.root.w + graph.root.w * 0.1)
-                    setState({
-                        tz,
-                        tx: -graph.root.x * tz + v.width / 2,
-                        ty: graph.root.y * tz + v.height,
-                    })
+                    make_center()
                 }
                 render_data(graph.nodes, graph.edges)
                 if (active.repo) {
@@ -149,7 +153,7 @@ const App: Component = () => {
 
         const { x, y, width, height } = el.getBBox()
         const v = svg.viewBox.baseVal
-        const z = 1.5
+        const z = 1
         setState({
             tz: z,
             tx: -x * z + v.width / 2 - width,
@@ -165,13 +169,7 @@ const App: Component = () => {
                 onContextMenu={e => {
                     e.preventDefault()
 
-                    const v = svg.viewBox.baseVal
-                    const tz = v.width / (graph.root.w + graph.root.w * 0.1)
-                    setState({
-                        tz,
-                        tx: -graph.root.x * tz + v.width / 2,
-                        ty: graph.root.y * tz + v.height,
-                    })
+                    make_center()
                     active.clear()
                 }}
                 onWheel={e => {
