@@ -79,7 +79,7 @@ type Active = {
 
 const App: Component = () => {
     const [active, setActive] = createStore<Active>({
-        repo: 'i007c/apollo',
+        repo: '',
         get project() {
             let p = projects[this.repo]
             if (!p) return { repo: '', detail: '', url: '', datetime: 0 }
@@ -173,6 +173,7 @@ const App: Component = () => {
                         tx: -graph.root.x * tz + v.width / 2,
                         ty: graph.root.y * tz + v.height,
                     })
+                    active.clear()
                 }}
                 onWheel={e => {
                     if (drag.active) return
